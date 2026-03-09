@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>NEXUS — Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet"/>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg:        #0d111c;
+    --bg2:       #0f1420;
+    --bg3:       #131826;
+    --bg4:       #1a1f2e;
+    --bg5:       #161b27;
+    --border:    rgba(255,255,255,0.06);
+    --text:      #e8eaf0;
+    --text2:     #c8cfe0;
+    --text3:     #8892b0;
+    --text4:     #5a6480;
+    --text5:     #3d4560;
+    --gold:      #f59e0b;
+    --green:     #10b981;
+    --indigo:    #6366f1;
+    --indigo2:   #818cf8;
+    --rose:      #f43f5e;
+    --cyan:      #06b6d4;
+    --r:         16px;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: var(--bg); color: var(--text); font-family: 'DM Mono', monospace; overflow: hidden; }
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 2px; }
+
+  /* ── LAYOUT ── */
+  #app { display: flex; height: 100vh; }
+
+  /* ── SIDEBAR ── */
+  #sidebar {
+    width: 240px;
+    background: linear-gradient(180deg, var(--bg3) 0%, var(--bg2) 100%);
+    border-right: 1px solid rgba(255,255,255,0.05);
+    display: flex; flex-direction: column;
+    transition: width 0.3s cubic-bezier(.4,0,.2,1);
+    flex-shrink: 0; overflow: hidden; z-index: 10;
+  }
+  #sidebar.collapsed { width: 72px; }
+
+  .sidebar-logo {
+    padding: 22px 16px 18px;
+    display: flex; align-items: center; gap: 12px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    min-width: 240px;
+  }
+  .logo-icon {
+    width: 40px; height: 40px; flex-shrink: 0;
+    background: linear-gradient(135deg, var(--gold), #d97706);
+    border-radius: 12px; display: flex; align-items: center; justify-content: center;
+    font-size: 18px; box-shadow: 0 4px 16px rgba(245,158,11,0.35);
+  }
+  .logo-text { transition: opacity 0.2s; white-space: nowrap; }
+  .logo-text .name { font-size: 15px; font-weight: 800; font-family: 'Syne', sans-serif; letter-spacing: -0.3px; }
+  .logo-text .sub { font-size: 9px; color: var(--text5); letter-spacing: 2.5px; }
+  #sidebar.collapsed .logo-text { opacity: 0; pointer-events: none; }
+
+  nav { padding: 14px 10px; flex: 1; }
+  .nav-btn {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    padding: 11px 14px; border-radius: 10px; border: none; cursor: pointer;
+    background: transparent; color: var(--text5);
+    margin-bottom: 4px; transition: all 0.15s;
+    border-left: 2px solid transparent;
+    min-width: 240px; font-family: 'Syne', sans-serif; font-size: 13px;
+    text-align: left;
+  }
+  .nav-btn:hover { background: rgba(255,255,255,0.03); color: var(--text3); }
+  .nav-btn.active {
+    background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(245,158,11,0.06));
+    color: var(--gold); border-left-color: var(--gold);
+  }
+  .nav-icon { font-size: 16px; flex-shrink: 0; width: 20px; text-align: center; }
+  .nav-label { transition: opacity 0.2s; white-space: nowrap; font-weight: 500; }
+  #sidebar.collapsed .nav-label { opacity: 0; pointer-events: none; }
+  .nav-btn.active .nav-label { font-weight: 700; }
+
+  .sidebar-footer {
+    padding: 12px; border-top: 1px solid rgba(255,255,255,0.05); min-width: 240px;
+  }
+  .user-chip {
+    display: flex; align-items: center; gap: 10px;
+    padding: 12px; background: rgba(255,255,255,0.03); border-radius: 10px;
+  }
+  .user-avatar {
+    width: 32px; height: 32px; border-radius: 8px; flex-shrink: 0;
+    background: linear-gradient(135deg, rgba(245,158,11,0.2), rgba(245,158,11,0.35));
+    border: 1px solid rgba(245,158,11,0.3);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; color: var(--gold); font-weight: 700;
+  }
+  .user-info { transition: opacity 0.2s; overflow: hidden; }
+  .user-info .uname { font-size: 12px; font-family: 'Syne', sans-serif; font-weight: 600; white-space: nowrap; }
+  .user-info .urole { font-size: 10px; color: var(--text5); }
+  #sidebar.collapsed .user-info { opacity: 0; pointer-events: none; }
+
+  /* ── MAIN ── */
+  #main { flex: 1; display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+
+  /* ── TOPBAR ── */
+  #topbar {
+    height: 64px; background: var(--bg2);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: center; padding: 0 24px; gap: 16px; flex-shrink: 0;
+  }
+  .icon-btn {
+    width: 36px; height: 36px; background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08); border-radius: 8px;
+    cursor: pointer; color: var(--text4); font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: all 0.15s; flex-shrink: 0; position: relative;
+  }
+  .icon-btn:hover { background: rgba(255,255,255,0.08); color: var(--text2); }
+  .notif-dot {
+    position: absolute; top: 7px; right: 7px;
+    width: 7px; height: 7px; background: var(--gold);
+    border-radius: 50%; border: 1.5px solid var(--bg);
+  }
+  .page-title { flex: 1; min-width: 0; }
+  .page-title h1 { font-size: 16px; font-weight: 700; font-family: 'Syne', sans-serif; line-height: 1.2; }
+  .page-title p { font-size: 11px; color: var(--text5); }
+  .topbar-right { display: flex; align-items: center; gap: 12px; flex-shrink: 0; }
+  .clock {
+    font-size: 11px; color: var(--text5); background: rgba(255,255,255,0.03);
+    padding: 6px 12px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);
+  }
+  .divider-v { width: 1px; height: 24px; background: rgba(255,255,255,0.06); }
+
+  /* ── PAGE BODY ── */
+  #page-body { flex: 1; overflow-y: auto; padding: 28px; }
+
+  /* ── PAGES ── */
+  .page { display: none; }
+  .page.active { display: block; }
+
+  /* ── METRIC CARDS ── */
+  .metrics-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 16px; margin-bottom: 28px; }
+  @media(max-width:1000px){ .metrics-grid { grid-template-columns: repeat(2,1fr); } }
+  .metric-card {
+    background: linear-gradient(135deg, var(--bg4) 0%, var(--bg5) 100%);
+    border: 1px solid var(--border); border-radius: var(--r); padding: 24px;
+    position: relative; overflow: hidden;
+    transition: transform 0.2s, box-shadow 0.2s; cursor: default;
+  }
+  .metric-card:hover { transform: translateY(-2px); }
+  .metric-glow {
+    position: absolute; top: 0; right: 0; width: 80px; height: 80px;
+    border-radius: 0 16px 0 0;
+  }
+  .metric-top { display: flex; justify-content: space-between; align-items: flex-start; }
+  .metric-label { font-size: 11px; letter-spacing: 2px; color: var(--text4); text-transform: uppercase; margin-bottom: 8px; }
+  .metric-value { font-size: 28px; font-weight: 700; font-family: 'Syne', sans-serif; letter-spacing: -0.5px; }
+  .metric-icon {
+    font-size: 20px; width: 44px; height: 44px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 12px; flex-shrink: 0;
+  }
+  .metric-bottom { margin-top: 16px; display: flex; align-items: center; gap: 6px; }
+  .metric-delta { font-size: 12px; font-weight: 600; padding: 3px 8px; border-radius: 20px; }
+  .metric-sub { font-size: 11px; color: var(--text5); }
+  .up { color: var(--green); background: rgba(16,185,129,0.1); }
+  .down { color: var(--rose); background: rgba(244,63,94,0.1); }
+
+  /* ── CHARTS GRID ── */
+  .charts-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .charts-pie-row { display: grid; grid-template-columns: 340px 1fr; gap: 16px; }
+  @media(max-width:900px){ .charts-2col { grid-template-columns: 1fr; } .charts-pie-row { grid-template-columns: 1fr; } }
+
+  .card {
+    background: linear-gradient(135deg, var(--bg4) 0%, var(--bg5) 100%);
+    border: 1px solid var(--border); border-radius: var(--r); padding: 24px;
+  }
+  .section-title { font-size: 18px; font-weight: 700; font-family: 'Syne', sans-serif; margin-bottom: 4px; }
+  .section-sub { font-size: 13px; color: var(--text5); margin-bottom: 20px; }
+  .chart-wrap { position: relative; }
+
+  /* ── ACTIVITY FEED ── */
+  .activity-item {
+    display: flex; align-items: center; gap: 14px;
+    padding: 12px 0; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .activity-item:last-child { border-bottom: none; }
+  .act-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .act-text { flex: 1; font-size: 13px; color: var(--text2); }
+  .act-by { font-size: 12px; color: var(--text5); margin-left: 6px; }
+  .act-time { font-size: 11px; color: var(--text5); white-space: nowrap; }
+
+  /* ── USERS PAGE ── */
+  .filters-row { display: flex; gap: 12px; margin-bottom: 24px; flex-wrap: wrap; align-items: center; }
+  .search-wrap { position: relative; flex: 1; min-width: 200px; }
+  .search-icon { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--text5); font-size: 16px; pointer-events: none; }
+  .f-input {
+    background: var(--bg5); border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; padding: 10px 14px; color: var(--text2);
+    font-size: 13px; font-family: 'DM Mono', monospace; outline: none;
+    transition: border-color 0.2s; width: 100%;
+  }
+  .f-input:focus { border-color: rgba(245,158,11,0.4); }
+  .search-input { padding-left: 34px; }
+  select.f-input { cursor: pointer; }
+  select.f-input option { background: var(--bg4); }
+  .count-badge {
+    font-size: 11px; color: var(--text5); padding: 10px 14px;
+    background: var(--bg5); border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 10px; white-space: nowrap;
+  }
+
+  .table-wrap {
+    background: linear-gradient(135deg, var(--bg4) 0%, var(--bg5) 100%);
+    border: 1px solid var(--border); border-radius: var(--r); overflow: hidden;
+  }
+  table { width: 100%; border-collapse: collapse; }
+  thead tr { border-bottom: 1px solid rgba(255,255,255,0.06); }
+  th {
+    padding: 14px 20px; text-align: left; font-size: 10px;
+    font-family: 'DM Mono', monospace; color: var(--text5);
+    letter-spacing: 1.5px; text-transform: uppercase; font-weight: 600;
+  }
+  tbody tr { border-bottom: 1px solid rgba(255,255,255,0.03); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  td { padding: 14px 20px; }
+  .user-cell { display: flex; align-items: center; gap: 12px; }
+  .u-avatar {
+    width: 36px; height: 36px; border-radius: 10px; flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700;
+  }
+  .u-name { font-size: 13px; color: var(--text2); font-weight: 500; }
+  .u-email { font-size: 12px; color: var(--text4); }
+  .badge-role {
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 6px;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge-role.admin { background: rgba(99,102,241,0.12); color: var(--indigo2); }
+  .badge-role.editor { background: rgba(245,158,11,0.12); color: var(--gold); }
+  .badge-role.viewer { background: rgba(255,255,255,0.04); color: var(--text4); }
+  .badge-status {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; padding: 4px 10px; border-radius: 20px;
+    font-family: 'DM Mono', monospace;
+  }
+  .badge-status .sdot { width: 5px; height: 5px; border-radius: 50%; display: inline-block; }
+  .badge-status.active { background: rgba(16,185,129,0.1); color: var(--green); }
+  .badge-status.active .sdot { background: var(--green); box-shadow: 0 0 6px var(--green); }
+  .badge-status.inactive { background: rgba(245,158,11,0.1); color: var(--gold); }
+  .badge-status.inactive .sdot { background: var(--gold); }
+  .badge-status.suspended { background: rgba(244,63,94,0.1); color: var(--rose); }
+  .badge-status.suspended .sdot { background: var(--rose); }
+  .u-date { font-size: 12px; color: var(--text5); }
+  .actions { display: flex; gap: 8px; }
+  .btn-edit, .btn-del {
+    padding: 6px 14px; border-radius: 8px; font-size: 11px;
+    font-family: 'DM Mono', monospace; cursor: pointer; transition: all 0.15s; border: 1px solid;
+  }
+  .btn-edit {
+    background: rgba(99,102,241,0.12); border-color: rgba(99,102,241,0.25); color: var(--indigo2);
+  }
+  .btn-edit:hover { background: rgba(99,102,241,0.25); border-color: rgba(99,102,241,0.5); }
+  .btn-del {
+    background: rgba(244,63,94,0.1); border-color: rgba(244,63,94,0.25); color: #fb7185;
+  }
+  .btn-del:hover { background: rgba(244,63,94,0.22); border-color: rgba(244,63,94,0.5); }
+  .no-results { padding: 48px; text-align: center; color: var(--text5); font-size: 13px; }
+
+  /* ── ANALYTICS PAGE ── */
+  .perf-bar-wrap { margin-bottom: 22px; }
+  .perf-row { display: flex; justify-content: space-between; margin-bottom: 8px; }
+  .perf-label { font-size: 12px; color: var(--text3); }
+  .perf-val { font-size: 12px; font-weight: 700; }
+  .perf-track { height: 4px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+  .perf-fill { height: 100%; border-radius: 2px; transition: width 0.8s ease; }
+  .analytics-bottom { display: grid; grid-template-columns: 300px 1fr; gap: 32px; align-items: center; }
+  @media(max-width:900px){ .analytics-bottom { grid-template-columns: 1fr; } }
+
+  /* ── PLACEHOLDER ── */
+  .placeholder-page {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 400px; gap: 16px;
+  }
+  .placeholder-icon { font-size: 56px; opacity: 0.15; }
+  .placeholder-title { font-size: 22px; font-weight: 700; font-family: 'Syne', sans-serif; }
+  .placeholder-sub { font-size: 13px; color: var(--text5); }
+  .coming-soon {
+    margin-top: 8px; padding: 8px 20px;
+    background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.2);
+    border-radius: 20px; font-size: 11px; color: var(--gold); letter-spacing: 1px;
+  }
+
+  /* fade-in */
+  @keyframes fadeUp { from { opacity:0; transform:translateY(12px); } to { opacity:1; transform:translateY(0); } }
+  .page.active { animation: fadeUp 0.3s ease both; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- SIDEBAR -->
+  <aside id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">◈</div>
+      <div class="logo-text">
+        <div class="name">NEXUS</div>
+        <div class="sub">ADMIN PORTAL</div>
+      </div>
+    </div>
+    <nav>
+      <button class="nav-btn active" data-page="dashboard">
+        <span class="nav-icon">▣</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-btn" data-page="users">
+        <span class="nav-icon">◎</span><span class="nav-label">Users</span>
+      </button>
+      <button class="nav-btn" data-page="analytics">
+        <span class="nav-icon">◈</span><span class="nav-label">Analytics</span>
+      </button>
+      <button class="nav-btn" data-page="reports">
+        <span class="nav-icon">◧</span><span class="nav-label">Reports</span>
+      </button>
+      <button class="nav-btn" data-page="settings">
+        <span class="nav-icon">◌</span><span class="nav-label">Settings</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-chip">
+        <div class="user-avatar">AD</div>
+        <div class="user-info">
+          <div class="uname">Admin User</div>
+          <div class="urole">Super Admin</div>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- MAIN -->
+  <div id="main">
+    <header id="topbar">
+      <button class="icon-btn" id="toggle-sidebar">☰</button>
+      <div class="page-title">
+        <h1 id="page-heading">Dashboard</h1>
+        <p id="page-sub">Welcome back, Admin</p>
+      </div>
+      <div class="topbar-right">
+        <div class="clock" id="clock">00:00:00</div>
+        <div class="divider-v"></div>
+        <button class="icon-btn">🔔<span class="notif-dot"></span></button>
+      </div>
+    </header>
+
+    <div id="page-body">
+
+      <!-- ════ DASHBOARD PAGE ════ -->
+      <section class="page active" id="page-dashboard">
+        <div class="metrics-grid">
+          <div class="metric-card" style="--c:#f59e0b">
+            <div class="metric-glow" style="background:radial-gradient(circle at 100% 0%,rgba(245,158,11,0.15),transparent 70%)"></div>
+            <div class="metric-top">
+              <div>
+                <div class="metric-label">Total Users</div>
+                <div class="metric-value">48,291</div>
+              </div>
+              <div class="metric-icon" style="background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.2)">👥</div>
+            </div>
+            <div class="metric-bottom">
+              <span class="metric-delta up">↑ +12.4%</span>
+              <span class="metric-sub">vs last month</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-glow" style="background:radial-gradient(circle at 100% 0%,rgba(16,185,129,0.15),transparent 70%)"></div>
+            <div class="metric-top">
+              <div>
+                <div class="metric-label">Revenue</div>
+                <div class="metric-value">$284,930</div>
+              </div>
+              <div class="metric-icon" style="background:rgba(16,185,129,0.1);border:1px solid rgba(16,185,129,0.2)">💰</div>
+            </div>
+            <div class="metric-bottom">
+              <span class="metric-delta up">↑ +8.7%</span>
+              <span class="metric-sub">vs last month</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-glow" style="background:radial-gradient(circle at 100% 0%,rgba(99,102,241,0.15),transparent 70%)"></div>
+            <div class="metric-top">
+              <div>
+                <div class="metric-label">Active Sessions</div>
+                <div class="metric-value">3,847</div>
+              </div>
+              <div class="metric-icon" style="background:rgba(99,102,241,0.1);border:1px solid rgba(99,102,241,0.2)">⚡</div>
+            </div>
+            <div class="metric-bottom">
+              <span class="metric-delta down">↓ -2.1%</span>
+              <span class="metric-sub">vs last month</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <div class="metric-glow" style="background:radial-gradient(circle at 100% 0%,rgba(244,63,94,0.15),transparent 70%)"></div>
+            <div class="metric-top">
+              <div>
+                <div class="metric-label">Conversion Rate</div>
+                <div class="metric-value">5.38%</div>
+              </div>
+              <div class="metric-icon" style="background:rgba(244,63,94,0.1);border:1px solid rgba(244,63,94,0.2)">🎯</div>
+            </div>
+            <div class="metric-bottom">
+              <span class="metric-delta up">↑ +0.6%</span>
+              <span class="metric-sub">vs last month</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="charts-2col">
+          <div class="card">
+            <div class="section-title">User Growth</div>
+            <div class="section-sub">Cumulative user registrations by month</div>
+            <div class="chart-wrap" style="height:220px"><canvas id="lineChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Revenue Overview</div>
+            <div class="section-sub">Monthly revenue breakdown in USD</div>
+            <div class="chart-wrap" style="height:220px"><canvas id="barChart"></canvas></div>
+          </div>
+        </div>
+
+        <div class="charts-pie-row">
+          <div class="card">
+            <div class="section-title">Traffic Sources</div>
+            <div class="section-sub">Where your visitors come from</div>
+            <div class="chart-wrap" style="height:260px"><canvas id="pieChart"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Recent Activity</div>
+            <div class="section-sub">Latest platform events</div>
+            <div id="activity-feed"></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ USERS PAGE ════ -->
+      <section class="page" id="page-users">
+        <div class="filters-row">
+          <div class="search-wrap">
+            <span class="search-icon">⌕</span>
+            <input class="f-input search-input" type="text" id="search-input" placeholder="Search by name or email…"/>
+          </div>
+          <select class="f-input" id="role-filter" style="width:140px">
+            <option value="">All Roles</option>
+            <option>Admin</option><option>Editor</option><option>Viewer</option>
+          </select>
+          <select class="f-input" id="status-filter" style="width:150px">
+            <option value="">All Status</option>
+            <option>Active</option><option>Inactive</option><option>Suspended</option>
+          </select>
+          <div class="count-badge" id="user-count">10 / 10 users</div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>User</th><th>Email</th><th>Role</th>
+                <th>Status</th><th>Joined</th><th>Actions</th>
+              </tr>
+            </thead>
+            <tbody id="users-tbody"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- ════ ANALYTICS PAGE ════ -->
+      <section class="page" id="page-analytics">
+        <div class="charts-2col">
+          <div class="card">
+            <div class="section-title">User Growth Trend</div>
+            <div class="section-sub">Cumulative registrations over time</div>
+            <div class="chart-wrap" style="height:240px"><canvas id="lineChart2"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="section-title">Revenue by Month</div>
+            <div class="section-sub">Monthly revenue in USD</div>
+            <div class="chart-wrap" style="height:240px"><canvas id="barChart2"></canvas></div>
+          </div>
+        </div>
+        <div class="card" style="margin-top:16px">
+          <div class="analytics-bottom">
+            <div>
+              <div class="section-title">Traffic Sources</div>
+              <div class="section-sub">Visitor acquisition breakdown</div>
+              <div class="chart-wrap" style="height:260px"><canvas id="pieChart2"></canvas></div>
+            </div>
+            <div>
+              <div class="section-title">Performance Stats</div>
+              <div class="section-sub">Key metrics this quarter</div>
+              <div id="perf-bars"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ════ REPORTS PAGE ════ -->
+      <section class="page" id="page-reports">
+        <div class="placeholder-page">
+          <div class="placeholder-icon">◧</div>
+          <div class="placeholder-title">Reports</div>
+          <div class="placeholder-sub">Report generation engine</div>
+          <div class="coming-soon">COMING SOON</div>
+        </div>
+      </section>
+
+      <!-- ════ SETTINGS PAGE ════ -->
+      <section class="page" id="page-settings">
+        <div class="placeholder-page">
+          <div class="placeholder-icon">◌</div>
+          <div class="placeholder-title">Settings</div>
+          <div class="placeholder-sub">Platform configuration panel</div>
+          <div class="coming-soon">COMING SOON</div>
+        </div>
+      </section>
+
+    </div><!-- /page-body -->
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ─── DATA ────────────────────────────────────────────────────────────────────
+let usersData = [
+  {id:1,name:"Sophia Hartwell",email:"s.hartwell@nexus.io",role:"Admin",status:"Active",avatar:"SH",joined:"Jan 12, 2024"},
+  {id:2,name:"Marcus Chen",email:"m.chen@nexus.io",role:"Editor",status:"Active",avatar:"MC",joined:"Feb 3, 2024"},
+  {id:3,name:"Aisha Patel",email:"a.patel@nexus.io",role:"Viewer",status:"Inactive",avatar:"AP",joined:"Mar 19, 2024"},
+  {id:4,name:"Dylan Torres",email:"d.torres@nexus.io",role:"Editor",status:"Active",avatar:"DT",joined:"Apr 7, 2024"},
+  {id:5,name:"Elena Novak",email:"e.novak@nexus.io",role:"Admin",status:"Active",avatar:"EN",joined:"Apr 22, 2024"},
+  {id:6,name:"James Okafor",email:"j.okafor@nexus.io",role:"Viewer",status:"Suspended",avatar:"JO",joined:"May 5, 2024"},
+  {id:7,name:"Priya Singh",email:"p.singh@nexus.io",role:"Editor",status:"Active",avatar:"PS",joined:"May 18, 2024"},
+  {id:8,name:"Luca Moretti",email:"l.moretti@nexus.io",role:"Viewer",status:"Active",avatar:"LM",joined:"Jun 1, 2024"},
+  {id:9,name:"Nadia Kowalski",email:"n.kowalski@nexus.io",role:"Editor",status:"Inactive",avatar:"NK",joined:"Jun 14, 2024"},
+  {id:10,name:"Omar Hassan",email:"o.hassan@nexus.io",role:"Admin",status:"Active",avatar:"OH",joined:"Jul 2, 2024"},
+];
+
+const AVATAR_COLORS = ["#f59e0b","#10b981","#6366f1","#f43f5e","#06b6d4","#8b5cf6","#ec4899","#14b8a6","#f97316","#84cc16"];
+
+const pageMeta = {
+  dashboard:{title:"Dashboard",sub:"Welcome back, Admin"},
+  users:{title:"Users",sub:"Manage your team and permissions"},
+  analytics:{title:"Analytics",sub:"Insights and performance metrics"},
+  reports:{title:"Reports",sub:"Generated reports and exports"},
+  settings:{title:"Settings",sub:"Platform configuration"},
+};
+
+const activity = [
+  {text:"New user registered",by:"Sophia Hartwell",time:"2m ago",color:"#10b981"},
+  {text:"Report generated",by:"Marcus Chen",time:"14m ago",color:"#6366f1"},
+  {text:"Payment processed",by:"System",time:"1h ago",color:"#f59e0b"},
+  {text:"Settings updated",by:"Omar Hassan",time:"2h ago",color:"#f43f5e"},
+  {text:"Backup completed",by:"System",time:"3h ago",color:"#06b6d4"},
+  {text:"Bulk import done",by:"Aisha Patel",time:"5h ago",color:"#10b981"},
+];
+
+const chartDefaults = {
+  plugins:{legend:{display:false},tooltip:{backgroundColor:"#1a1f2e",borderColor:"rgba(255,255,255,0.08)",borderWidth:1,padding:12,titleFont:{family:"'DM Mono',monospace",size:11},bodyFont:{family:"'DM Mono',monospace",size:12}}},
+};
+const scaleDefaults = {
+  x:{grid:{color:"rgba(255,255,255,0.03)"},ticks:{color:"#3d4560",font:{family:"'DM Mono',monospace",size:10}},border:{color:"transparent"}},
+  y:{grid:{color:"rgba(255,255,255,0.04)"},ticks:{color:"#3d4560",font:{family:"'DM Mono',monospace",size:10}},border:{color:"transparent"}},
+};
+
+// ─── CLOCK ───────────────────────────────────────────────────────────────────
+function tick(){
+  document.getElementById('clock').textContent = new Date().toLocaleTimeString([],{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+tick(); setInterval(tick,1000);
+
+// ─── SIDEBAR TOGGLE ──────────────────────────────────────────────────────────
+document.getElementById('toggle-sidebar').addEventListener('click',()=>{
+  document.getElementById('sidebar').classList.toggle('collapsed');
+});
+
+// ─── NAV ─────────────────────────────────────────────────────────────────────
+let activeCharts = {};
+
+function navigateTo(pageId){
+  document.querySelectorAll('.nav-btn').forEach(b=>b.classList.toggle('active', b.dataset.page===pageId));
+  document.querySelectorAll('.page').forEach(p=>p.classList.toggle('active', p.id==='page-'+pageId));
+  document.getElementById('page-heading').textContent = pageMeta[pageId].title;
+  document.getElementById('page-sub').textContent = pageMeta[pageId].sub;
+  // init charts lazily
+  if(pageId==='dashboard') initDashboardCharts();
+  if(pageId==='analytics') initAnalyticsCharts();
+  if(pageId==='users') renderUsers();
+}
+
+document.querySelectorAll('.nav-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>navigateTo(btn.dataset.page));
+});
+
+// ─── ACTIVITY FEED ───────────────────────────────────────────────────────────
+const feed = document.getElementById('activity-feed');
+activity.forEach(a=>{
+  feed.innerHTML += `<div class="activity-item">
+    <div class="act-dot" style="background:${a.color};box-shadow:0 0 8px ${a.color}88"></div>
+    <div style="flex:1"><span class="act-text">${a.text}</span><span class="act-by">by ${a.by}</span></div>
+    <div class="act-time">${a.time}</div>
+  </div>`;
+});
+
+// ─── CHART FACTORY ───────────────────────────────────────────────────────────
+function makeLineChart(id){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  if(activeCharts[id]) activeCharts[id].destroy();
+  const g = ctx.getContext('2d').createLinearGradient(0,0,0,220);
+  g.addColorStop(0,'rgba(245,158,11,0.25)'); g.addColorStop(1,'rgba(245,158,11,0)');
+  activeCharts[id] = new Chart(ctx,{
+    type:'line',
+    data:{
+      labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      datasets:[{label:'Users',data:[4200,5800,7100,9300,11200,14800,17300,19500,23100,28400,35200,48291],
+        borderColor:'#f59e0b',backgroundColor:g,fill:true,tension:0.45,
+        pointBackgroundColor:'#f59e0b',pointBorderColor:'#0d111c',pointBorderWidth:2,
+        pointRadius:4,pointHoverRadius:7,borderWidth:2.5}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,...chartDefaults,
+      scales:{...scaleDefaults,y:{...scaleDefaults.y,ticks:{...scaleDefaults.y.ticks,callback:v=>v>=1000?`${v/1000}k`:v}}}
+    }
+  });
+}
+
+function makeBarChart(id){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  if(activeCharts[id]) activeCharts[id].destroy();
+  const g = ctx.getContext('2d').createLinearGradient(0,0,0,220);
+  g.addColorStop(0,'#10b981'); g.addColorStop(1,'rgba(16,185,129,0.25)');
+  activeCharts[id] = new Chart(ctx,{
+    type:'bar',
+    data:{
+      labels:['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'],
+      datasets:[{label:'Revenue',data:[18200,22400,19800,31500,28700,35200,41800,38500,44200,52100,49800,61400],
+        backgroundColor:g,borderRadius:6,borderSkipped:false,hoverBackgroundColor:'#10b981'}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,...chartDefaults,
+      plugins:{...chartDefaults.plugins,tooltip:{...chartDefaults.plugins.tooltip,titleColor:'#10b981',bodyColor:'#8892b0',callbacks:{label:c=>` $${c.raw.toLocaleString()}`}}},
+      scales:{...scaleDefaults,x:{...scaleDefaults.x,grid:{display:false}},y:{...scaleDefaults.y,ticks:{...scaleDefaults.y.ticks,callback:v=>`$${v/1000}k`}}}
+    }
+  });
+}
+
+function makePieChart(id){
+  const ctx = document.getElementById(id);
+  if(!ctx) return;
+  if(activeCharts[id]) activeCharts[id].destroy();
+  activeCharts[id] = new Chart(ctx,{
+    type:'doughnut',
+    data:{
+      labels:['Organic','Direct','Referral','Social','Email'],
+      datasets:[{data:[38,24,17,14,7],
+        backgroundColor:['#f59e0b','#6366f1','#10b981','#f43f5e','#06b6d4'],
+        borderColor:'#0d111c',borderWidth:3,hoverOffset:8}]
+    },
+    options:{responsive:true,maintainAspectRatio:false,cutout:'68%',
+      plugins:{legend:{position:'bottom',labels:{color:'#5a6480',font:{family:"'DM Mono',monospace",size:11},padding:16,boxWidth:10,boxHeight:10}},
+        tooltip:{backgroundColor:'#1a1f2e',borderColor:'rgba(255,255,255,0.08)',borderWidth:1,bodyColor:'#8892b0',padding:12,callbacks:{label:c=>` ${c.label}: ${c.raw}%`}}}
+    }
+  });
+}
+
+function initDashboardCharts(){
+  makeLineChart('lineChart');
+  makeBarChart('barChart');
+  makePieChart('pieChart');
+}
+
+function initAnalyticsCharts(){
+  makeLineChart('lineChart2');
+  makeBarChart('barChart2');
+  makePieChart('pieChart2');
+
+  const perfs=[
+    {label:'Avg. Session Duration',value:'4m 32s',pct:72,color:'#f59e0b'},
+    {label:'Bounce Rate',value:'28.4%',pct:28,color:'#f43f5e'},
+    {label:'Pages / Session',value:'3.7',pct:60,color:'#10b981'},
+    {label:'Goal Completion Rate',value:'5.38%',pct:54,color:'#6366f1'},
+  ];
+  const el = document.getElementById('perf-bars');
+  el.innerHTML = perfs.map(p=>`
+    <div class="perf-bar-wrap">
+      <div class="perf-row">
+        <span class="perf-label">${p.label}</span>
+        <span class="perf-val" style="color:${p.color}">${p.value}</span>
+      </div>
+      <div class="perf-track"><div class="perf-fill" style="width:${p.pct}%;background:linear-gradient(90deg,${p.color},${p.color}88)"></div></div>
+    </div>`).join('');
+}
+
+// ─── USERS TABLE ─────────────────────────────────────────────────────────────
+function renderUsers(){
+  const q = (document.getElementById('search-input').value||'').toLowerCase();
+  const role = document.getElementById('role-filter').value;
+  const status = document.getElementById('status-filter').value;
+
+  const filtered = usersData.filter(u=>{
+    const ms = u.name.toLowerCase().includes(q)||u.email.toLowerCase().includes(q);
+    const mr = !role || u.role===role;
+    const mst = !status || u.status===status;
+    return ms&&mr&&mst;
+  });
+
+  document.getElementById('user-count').textContent = `${filtered.length} / ${usersData.length} users`;
+
+  const tbody = document.getElementById('users-tbody');
+  if(!filtered.length){
+    tbody.innerHTML = `<tr><td colspan="6" class="no-results">No users match your filters</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = filtered.map(u=>{
+    const ac = AVATAR_COLORS[u.id % AVATAR_COLORS.length];
+    const roleClass = u.role.toLowerCase();
+    const statusClass = u.status.toLowerCase();
+    return `<tr>
+      <td><div class="user-cell">
+        <div class="u-avatar" style="background:${ac}22;border:1px solid ${ac}44;color:${ac}">${u.avatar}</div>
+        <span class="u-name">${u.name}</span>
+      </div></td>
+      <td class="u-email">${u.email}</td>
+      <td><span class="badge-role ${roleClass}">${u.role}</span></td>
+      <td><span class="badge-status ${statusClass}"><span class="sdot"></span>${u.status}</span></td>
+      <td class="u-date">${u.joined}</td>
+      <td><div class="actions">
+        <button class="btn-edit">Edit</button>
+        <button class="btn-del" data-id="${u.id}">Delete</button>
+      </div></td>
+    </tr>`;
+  }).join('');
+
+  // delete handlers
+  tbody.querySelectorAll('.btn-del').forEach(btn=>{
+    btn.addEventListener('click',()=>{
+      usersData = usersData.filter(u=>u.id!==+btn.dataset.id);
+      renderUsers();
+    });
+  });
+}
+
+// filter listeners
+['search-input','role-filter','status-filter'].forEach(id=>{
+  document.getElementById(id).addEventListener('input', renderUsers);
+});
+
+// ─── BOOT ────────────────────────────────────────────────────────────────────
+initDashboardCharts();
+renderUsers();
+</script>
+</body>
+</html>
